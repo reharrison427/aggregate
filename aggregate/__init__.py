@@ -14,4 +14,3 @@ from aggregate import *
 import logging, sys
 logging.basicConfig(format='%(levelname)s (%(name)s): %(message)s',
                      level=logging.INFO, stream=sys.stdout)
-

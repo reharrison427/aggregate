@@ -1,6 +1,6 @@
 name: aggregate
 dependencies:
-  - python=2
+  - python=3
   - matplotlib
   - numpy
   - vtk

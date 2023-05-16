@@ -15,7 +15,7 @@ Currently available types are:
 """
 
 from __future__ import print_function
-from simulation import Simulation
+from .simulation import Simulation
 import numpy as np
 
 
@@ -95,7 +95,7 @@ def build_bcca(num_pcles=1024, radius=0.5, overlap=None, store_aggs=False, use_s
         print('INFO: Building generation %d with %d aggregates of %d monomers' % (idx+1,num_aggs,2**(idx+1)))
 
         next_list = [] # the list of next generation aggregate (half as big as agg_list)
-        
+
         for agg_idx in range(0,num_aggs,2):
             sim = Simulation(max_pcles=num_pcles)
             agg1 = agg_list[agg_idx]
