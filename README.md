@@ -1,13 +1,31 @@
 # aggregate
 Some python codes to generate various aggregate particles (e.g. ballistic particle cluster, and cluster-cluster) and characterise them in a variety of ways. Note that this is not done via dynamic simulation, but takes a ray-tracing approach.
 
-## Installation
+## Conda installation
 
 A conda environment file is provided, so after checking out the repo you can install all dependencies with:
 
 ```conda env create```
 
 Note that currently simulation.show() can use either matplotlib or mayavi, but the inclusion of mayavi holds back various packages (e.g. scipy).
+
+## python installation 
+
+```
+git clone https://github.com/cpinte/aggregate.git
+cd aggregate
+python3 setup.py install
+```
+
+If you don't have the `sudo` rights, use `python3 setup.py install --user`.
+
+To install in developer mode: (i.e. using symlinks to point directly
+at this directory, so that code changes here are immediately available
+without needing to repeat the above step):
+
+```
+ python3 setup.py develop
+```
 
 
 ## Usage
