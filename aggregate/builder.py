@@ -85,7 +85,7 @@ def build_bcca(num_pcles=1024, radius=0.5, overlap=None, store_aggs=False, use_s
 
     # first run, generate 2 monomer BPCA aggregates
     agg_list = []
-    [agg_list.append(build_bpca(num_pcles=2, radius=radius, output=False, overlap=overlap)) for i in range(num_pcles/2)]
+    [agg_list.append(build_bpca(num_pcles=2, radius=radius, output=False, overlap=overlap)) for i in range(num_pcles//2)]
     [agg.recentre() for agg in agg_list]
 
     # loop over generations needed

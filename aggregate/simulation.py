@@ -247,7 +247,7 @@ class Simulation:
             from mpl_toolkits.mplot3d import Axes3D
             fig = plt.figure()
             # ax = fig.add_subplot(111, projection='3d'
-            ax = Axes3D(fig) 
+            ax = Axes3D(fig)
             # ax.set_aspect('equal')
             h = ax.scatter(self.pos[:,0], self.pos[:,1], self.pos[:,2], s=100.)
 
@@ -664,6 +664,10 @@ class Simulation:
             self.radius[0:self.count,np.newaxis] ), delimiter=",", header=headertxt)
 
         return
+
+
+    def to_GMM(self, filename, wl, Re, Img):
+        pass
 
 
 
