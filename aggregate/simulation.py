@@ -682,10 +682,6 @@ class Simulation:
             delimiter=" ", header=headertxt, fmt="%10.5f", comments='')
 
 
-    def to_GMM(self, filename, wl, Re, Img):
-        pass
-
-
 
     def from_csv(self, filename, density=None):
         """
