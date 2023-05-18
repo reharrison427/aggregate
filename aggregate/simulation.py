@@ -249,7 +249,7 @@ class Simulation:
             from mpl_toolkits.mplot3d import Axes3D
             fig = plt.figure()
             # ax = fig.add_subplot(111, projection='3d'
-            ax = Axes3D(fig) 
+            ax = Axes3D(fig)
             # ax.set_aspect('equal')
             h = ax.scatter(self.pos[:,0], self.pos[:,1], self.pos[:,2], s=100.)
 
@@ -680,6 +680,10 @@ class Simulation:
         np.savetxt(filename, np.hstack((self.pos[0:self.count],
             self.radius[0:self.count,np.newaxis], Re_arr[0:self.count, np.newaxis], Img_arr[0:self.count, np.newaxis])), 
             delimiter=" ", header=headertxt, fmt="%10.5f", comments='')
+
+
+    def to_GMM(self, filename, wl, Re, Img):
+        pass
 
 
 
