@@ -28,6 +28,8 @@ Requirements:
 import os
 import numpy as np
 from scipy.spatial.distance import cdist
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 
@@ -55,12 +57,12 @@ class Simulation:
         elif filename is not None:
             self.from_csv(filename, density=density)
         else:
-            self.pos = np.zeros( (max_pcles, 3 ), dtype=np.float )
-            self.id = np.zeros( max_pcles, dtype=np.int )
-            self.radius =  np.zeros( max_pcles, dtype=np.float )
-            self.volume = np.zeros( max_pcles, dtype=np.float )
-            self.mass = np.zeros( max_pcles, dtype=np.float )
-            self.density = np.zeros( max_pcles, dtype=np.float )
+            self.pos = np.zeros( (max_pcles, 3 ), dtype=np.float64 )
+            self.id = np.zeros( max_pcles, dtype=np.int64 )
+            self.radius =  np.zeros( max_pcles, dtype=np.float64 )
+            self.volume = np.zeros( max_pcles, dtype=np.float64 )
+            self.mass = np.zeros( max_pcles, dtype=np.float64 )
+            self.density = np.zeros( max_pcles, dtype=np.float64 )
             self.count = 0
             self.agg_count = 0
             self.next_id = 0
@@ -254,6 +256,7 @@ class Simulation:
             if fit_ellipse:
                 ax.plot_wireframe(x, y, z,  rstride=4, cstride=4, color='k', alpha=0.2)
             plt.show()
+            plt.savefig('particle_test_fig.png')
 
         elif using=='maya':
             import mayavi.mlab as mlab
@@ -642,7 +645,7 @@ class Simulation:
             # Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0
 
             headertxt = '%d\n%s' % (len(self.pos), filename)
-            np.savetxt(filename, np.hstack( (self.id[:,np.newaxis], self.pos, self.radius[:,np.newaxis])) ,
+            np.savetxt(filename, np.hstack((self.id[:,np.newaxis], self.pos, self.radius[:,np.newaxis])) ,
                 delimiter=" ", header=headertxt, comments='')
 
             # TODO: add formatted header and fmt statement to savetxt
@@ -660,10 +663,23 @@ class Simulation:
         """
 
         headertxt = 'id, x, y, z, radius'
-        np.savetxt(filename, np.hstack( self.id[0:self.count,np.newaxis], self.pos[0:self.count],
-            self.radius[0:self.count,np.newaxis] ), delimiter=",", header=headertxt)
-
+        np.savetxt(filename, np.hstack((self.id[0:self.count,np.newaxis], self.pos[0:self.count],
+            self.radius[0:self.count,np.newaxis])), delimiter=",", header=headertxt)
+        stacked = np.hstack((self.id[0:self.count,np.newaxis], self.pos[0:self.count],
+            self.radius[0:self.count,np.newaxis]))
+        print(stacked)
         return
+    
+    def to_GMM(self, filename, wl, Re, Img):
+        """
+        Write simulation variables into format GMM can read: x, y, z, rad, Re, Img
+        """
+        headertxt = str(wl) + '\n' + str(self.count)
+        Re_arr = np.full(self.count, Re)
+        Img_arr = np.full(self.count, Img)
+        np.savetxt(filename, np.hstack((self.pos[0:self.count],
+            self.radius[0:self.count,np.newaxis], Re_arr[0:self.count, np.newaxis], Img_arr[0:self.count, np.newaxis])), 
+            delimiter=" ", header=headertxt, fmt="%10.5f", comments='')
 
 
 
@@ -675,7 +691,7 @@ class Simulation:
         """
 
         simdata = np.genfromtxt(filename, comments='#', delimiter=',')
-        self.id = simdata[:,0].astype(np.int)
+        self.id = simdata[:,0].astype(np.int64)
         self.pos = simdata[:,1:4]
         self.radius = simdata[:,4]
         if density is None:
@@ -842,7 +858,7 @@ class Simulation:
         resolution. Note that the 'substrate' is assumed simply to be the lowest
         point in the aggregate and values with no particle will be set to zero there."""
 
-        afm_image = np.zeros( (xpix,ypix), dtype=np.float )
+        afm_image = np.zeros( (xpix,ypix), dtype=np.float64 )
 
         (xmin, xmax), (ymin, ymax), (zmin, zmax) = self.get_bb()
 
