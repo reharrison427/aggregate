@@ -31,6 +31,8 @@ from scipy.spatial.distance import cdist
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+import pandas as pd
+from scipy import interpolate
 
 
 
@@ -216,7 +218,7 @@ class Simulation:
 
 
 
-    def show(self, using='maya', fit_ellipse=False, show_hull=False):
+    def show(self, using='mpl', fit_ellipse=False, show_hull=False):
         """
         A simple scatter-plot to represent the aggregate - either using mpl
         or mayavi
@@ -324,7 +326,13 @@ class Simulation:
         # TODO
 
         num_pcles = sim.count
-
+        '''
+        print('self.pos.shape '+str(self.pos.shape))
+        print('self.count ' +str(self.count))
+        print('len of self.pos ' +str(len(self.pos[self.count:self.count+num_pcles])))
+        print('sim.pos.shape ' + str(sim.pos.shape))
+        print('len of sim.pos ' + str(len(sim.pos[0:sim.count])))
+        '''
         self.pos[self.count:self.count+num_pcles] = sim.pos[0:sim.count]
         self.radius[self.count:self.count+num_pcles] = sim.radius[0:sim.count]
         self.density[self.count:self.count+num_pcles] = sim.density[0:sim.count]
@@ -336,6 +344,13 @@ class Simulation:
         self.count += num_pcles
 
         return True
+    
+    def add_agg_h(self, sim, check=False):
+        '''
+        Version of add_agg for hierarchical aggregates that allows unequal
+        numbers of particles in the core and the impactor
+        '''
+        pass
 
 
 
@@ -669,7 +684,7 @@ class Simulation:
             self.radius[0:self.count,np.newaxis]))
         print(stacked)
         return
-    
+    '''
     def to_GMM(self, filename, wl, Re, Img):
         """
         Write simulation variables into format GMM can read: x, y, z, rad, Re, Img
@@ -680,7 +695,29 @@ class Simulation:
         np.savetxt(filename, np.hstack((self.pos[0:self.count],
             self.radius[0:self.count,np.newaxis], Re_arr[0:self.count, np.newaxis], Img_arr[0:self.count, np.newaxis])), 
             delimiter=" ", header=headertxt, fmt="%10.5f", comments='')
+    '''
 
+    def to_GMM(self, outfile, optics_file, wl):
+        # wavelength is in mm
+        """
+        Write simulation variables into format GMM can read: x, y, z, rad, Re, Img
+        """
+        # Calculate real and imagingary indices from optics file
+        data = pd.read_csv(optics_file, header=None, delimiter=r"\s+", engine='python')
+        data.columns = ['Wav', 'Real', 'Img']
+
+        f  = interpolate.interp1d(np.log(data.Wav), np.log(data.Img), fill_value='extrapolate')
+        g  = interpolate.interp1d(np.log(data.Wav), np.log(data.Real), fill_value='extrapolate')
+
+        Re = np.exp(g(np.log(wl)))
+        Img = np.exp(f(np.log(wl)))
+    
+        headertxt = str(wl) + '\n' + str(self.count)
+        Re_arr = np.full(self.count, Re)
+        Img_arr = np.full(self.count, Img)
+        np.savetxt(outfile, np.hstack((self.pos[0:self.count],
+            self.radius[0:self.count,np.newaxis], Re_arr[0:self.count, np.newaxis], Img_arr[0:self.count, np.newaxis])), 
+            delimiter=" ", header=headertxt, fmt="%10.5f", comments='')
 
 
     def from_csv(self, filename, density=None):
