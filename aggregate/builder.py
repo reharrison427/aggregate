@@ -12,12 +12,18 @@ Currently available types are:
     build_bcca() - Ballistic cluster-cluster aggregate
     build_bpca() - Ballistic particle cluster aggregate
 
+Types added by Rachel E. Harrison (rachel.harrison@monash.edu), 2023:
+    
+    build_bcca_rad() - Ballistic cluster-cluster aggregate with radius of gyration up to a given value
+    build_bpca_rad() - Ballistic particle-cluster aggregate with radius of gyration up to a given value
+    build_hierarchical() - Hierarchical cluster-cluster aggregate with different core and impactor sizes 
+
 """
 
 from __future__ import print_function
 from .simulation import Simulation
 import numpy as np
-
+import math
 
 debug = False
 
@@ -37,12 +43,6 @@ debug = False
 # TODO: add QBCCA? (http://iopscience.iop.org/article/10.1088/0004-637X/707/2/1247/pdf)
 
 # TODO: add BAM1/BAM2 type aggregation? (allow for rolling rather than hit + stick)
-
-def build_hierarchical():
-
-    pass
-
-
 
 def build_bcca(num_pcles=1024, radius=0.5, overlap=None, store_aggs=False, use_stored=False, agg_path='.', constrain_dir=True):
     """
@@ -151,7 +151,28 @@ def build_bcca(num_pcles=1024, radius=0.5, overlap=None, store_aggs=False, use_s
 
     return next_list[0]
 
-
+def build_bcca_rad(pcle_rad=10, mono_rad=0.5, overlap=None, store_aggs=False, use_stored=False, agg_path='.', constrain_dir=True):
+    '''
+    Build a cluster-cluster agglomerate particle with a radius of or below a given value.
+    This function calls build_bcca and checks the particle radius after every generation.
+    Price is right rules: closest without going over wins.
+    '''
+    if overlap is not None:
+        if (overlap<0.) or (overlap>1.):
+            print('ERROR: overlap must be either None, or 0<overlap<1')
+            return None
+    dfrac = 2 # Approximate fractal dimension (should be on the low side)
+    #v_pcle = (4.0/3.0)*np.pi*pcle_rad**3 # Volume of grain if it was a sphere
+    N_approx = (pcle_rad/mono_rad)**dfrac # Approximate number of monomers given grain radius and dfrac
+    agg_rad = 0
+    agg_list = []
+    i=int(math.log(N_approx, 2)-1)
+    while agg_rad < pcle_rad:
+        agg_gen = build_bcca(num_pcles = 2**i, radius=mono_rad, overlap=overlap)
+        agg_rad = agg_gen.gyration()
+        agg_list.append(agg_gen)
+        i+=1
+    return agg_list[len(agg_list)-2]
 
 def build_bpca(num_pcles=1024, radius=0.5, overlap=None, output=True):
     """
@@ -207,6 +228,133 @@ def build_bpca(num_pcles=1024, radius=0.5, overlap=None, output=True):
 
     return sim
 
+def build_bpca_rad_fast(pcle_rad=10, mono_rad=0.5, overlap=None, store_aggs=False, use_stored=False, agg_path='.', constrain_dir=True, output=True):
+    '''
+    Build a particle-cluster agglomerate particle with a radius of or below a given value.
+    This function calls build_bpca and checks the particle radius after every generation.
+    Price is right rules: closest without going over wins.
+    '''
+    if overlap is not None:
+        if (overlap<0.) or (overlap>1.):
+            print('ERROR: overlap must be either None, or 0<overlap<1')
+            return None
+    dfrac = 2.3 # Approximate fractal dimension (should be on the low side)
+    #v_pcle = (4.0/3.0)*np.pi*pcle_rad**3 # Volume of grain if it was a sphere
+    N_approx = (pcle_rad/mono_rad)**dfrac # Approximate number of monomers given grain radius and dfrac
+    #agg_rad = 0
+    agg_list = []
+    i=int(N_approx)
+    agg_init = build_bpca(num_pcles=i, radius=mono_rad, overlap=overlap)
+    agg_list = [agg_init]
+    agg_rad = agg_init.gyration()
+    # set up sim where max pcles is i or i+1?
+    sim_init = Simulation(max_pcles=int(N_approx))
+    sim_init.add_agg(agg_init)
+    sim_list = [sim_init]
+    radius=mono_rad
+    i=1
+    while agg_rad < pcle_rad:
+        #sim = sim_list[i-1]
+        sim = Simulation(max_pcles=int(N_approx)+i)
+        sim.add_agg(agg_list[-1])
+        success = False
+        while not success:
+            #sim = sim_list[i-1]
+            if output: 
+                #print(' ')
+                print(' Adding particle %d' % (int(N_approx)+i), end='\r')
+
+            first = random_sphere() * max(sim.farthest() * 2.0, radius *4.)
+            second = random_sphere() * max(sim.farthest() * 2.0, radius *4.)
+            direction = (second - first)
+            direction = direction/np.linalg.norm(direction)
+            ids, hit = sim.intersect(first, direction, closest=True)
+            if hit is None: continue
+
+            # shift the origin along the line from the particle centre to the intersect
+            new = hit + (hit-sim.pos[np.where(sim.id==ids)[0][0]])
+
+            # Add to the simulation, checking for overlap with existing partilces (returns False if overlap detected)
+            success = sim.check(new, radius)
+            if not success: continue
+
+            # if requested, move the monomer back an amount
+            if overlap is not None:
+                new = hit + (hit-sim.pos[ids])*(1.-overlap)
+
+            sim.add(new, radius)
+            sim.recentre()
+            agg_list.append(sim)
+            sim_list.append(sim)
+            agg_rad = agg_list[-1].gyration()
+              
+        i+=1
+        
+    return agg_list[len(agg_list)-2]
+
+def build_hierarchical(npcle_core=16, npcle_impact=16, radius_core=0.5, radius_impact=0.5, n_impact=10, overlap=None, radius=0.5, store_aggs=False, use_stored=False, agg_path='.', constrain_dir=True):
+    '''
+    Build dust grain by launching bcca's of a specified size at a core particle
+    '''
+    # Build core bcca
+    core = build_bcca(num_pcles=npcle_core, radius=radius_core, overlap=overlap)
+
+    # Build list of impactor bcca's
+    agg_list = []
+    for i in range(n_impact):
+        impactor = build_bcca(num_pcles=npcle_impact, radius=radius_impact, overlap=overlap)
+        agg_list.append(impactor)
+    [agg.recentre() for agg in agg_list]
+    
+    # Loop over list of impactors to launch them at the core one by one
+    corelist = [core]
+    for j in range(n_impact):
+        sim = Simulation(max_pcles=((npcle_impact*(j+1))+npcle_core))
+        max_pcles = npcle_impact*(j+1)+npcle_core
+        print('max pcles: '+str(max_pcles))
+        agg1 = corelist[-1]
+        agg2 = agg_list[j]
+        sim.add_agg(agg1)
+    
+        # TODO - calculate the optimum value instead of 10 here!
+        vec = random_sphere() * max(sim.farthest() * 10.0, radius *4.)
+        agg2.move(vec)
+
+        success = False
+        while not success:
+
+            second = random_sphere() * max(agg1.farthest() * 10.0, radius *4.)
+
+            if constrain_dir:
+                direction = (second - vec)
+            else:
+                direction = second + random_sphere()
+
+            direction = direction/np.linalg.norm(direction)
+            ids, dist, hit = sim.intersect(agg2.pos, direction, closest=True)
+
+            if hit is None:
+                continue
+            else:
+                agg2.move(direction*dist)
+
+                # now need to shift to avoid any overlap - query the intersect between
+                # two monomers that will be colliding
+                agg2.move(hit-sim.pos[np.where(sim.id==ids)[0][0]])
+
+                # check if there are any overlaps in the domain
+                success = sim.check(agg2.pos, agg2.radius)
+                if not success: continue
+
+                # if requested, move the monomer back an amount
+                if overlap is not None:
+                    agg2.move( (sim.pos[np.where(sim.id==ids)[0][0]]-hit)*(overlap) )
+                print(sim.count)
+                sim.add_agg(agg2)
+                sim.recentre()
+                #next_list.append(sim)
+                corelist.append(sim)    
+    return corelist[-1]
 
 def test_random_sphere(num=1000, scale=1.):
     """
@@ -233,3 +381,4 @@ def random_sphere():
     z = u
 
     return np.array([x,y,z])
+
